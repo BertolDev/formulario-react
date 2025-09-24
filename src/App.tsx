@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { db } from "./firebaseConfig";
+import { collection, addDoc, getDocs } from "firebase/firestore";
+
 import {
   TextField,
   Button,
@@ -12,7 +15,7 @@ import {
 } from "@mui/material";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -30,7 +33,20 @@ function App() {
     "success"
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadUsers = async () => {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    const usersData: User[] = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<User, "id">),
+    }));
+    setUsers(usersData);
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !email || !phone) {
@@ -40,16 +56,26 @@ function App() {
       return;
     }
 
-    const newUser: User = { id: Date.now(), name, email, phone };
-    setUsers([...users, newUser]);
+    const newUser = { name, email, phone };
 
-    setName("");
-    setEmail("");
-    setPhone("");
+    try {
+      const docRef = await addDoc(collection(db, "users"), newUser);
 
-    setSnackbarMessage("Usuário cadastrado com sucesso!");
-    setSnackbarSeverity("success");
-    setSnackbarOpen(true);
+      setUsers([...users, { id: docRef.id, ...newUser }]);
+
+      setName("");
+      setEmail("");
+      setPhone("");
+
+      setSnackbarMessage("Usuário cadastrado com sucesso!");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error("Erro ao salvar usuário:", error);
+      setSnackbarMessage("Erro ao cadastrar usuário.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
   };
 
   return (
