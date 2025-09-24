@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "./firebaseConfig";
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, onSnapshot } from "firebase/firestore";
 
 import {
   TextField,
@@ -33,17 +33,17 @@ function App() {
     "success"
   );
 
-  const loadUsers = async () => {
-    const querySnapshot = await getDocs(collection(db, "users"));
-    const usersData: User[] = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<User, "id">),
-    }));
-    setUsers(usersData);
-  };
-
+  // Listener em tempo real
   useEffect(() => {
-    loadUsers();
+    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+      const usersData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<User, "id">),
+      }));
+      setUsers(usersData);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,9 +59,7 @@ function App() {
     const newUser = { name, email, phone };
 
     try {
-      const docRef = await addDoc(collection(db, "users"), newUser);
-
-      setUsers([...users, { id: docRef.id, ...newUser }]);
+      await addDoc(collection(db, "users"), newUser);
 
       setName("");
       setEmail("");
@@ -140,10 +138,10 @@ function App() {
           ))}
         </List>
       </Paper>
-      {/* Snackbar para feedback */}
+
       <Snackbar
         open={snackbarOpen}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbarOpen(false)}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
